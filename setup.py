@@ -11,16 +11,19 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="autodistill-base-model",
+    name="autodistill-gcp-vision",
     version=version,
-    author="",
-    author_email="",
-    description="Model for use with Autodistill",
+    author="Roboflow",
+    author_email="support@roboflow.com",
+    description="Autodistill Google Cloud Vision module for use in training a custom, fine-tuned model.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="",
+    url="https://github.com/capjamesg/autodistill-gcp-vision",
     install_requires=[
-        # list your requires
+        "google-cloud-vision",
+        "autodistill",
+        "supervision",
+        "numpy"
     ],
     packages=find_packages(exclude=("tests",)),
     extras_require={

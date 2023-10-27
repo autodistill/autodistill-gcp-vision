@@ -3,64 +3,96 @@
     <a align="center" href="" target="_blank">
       <img
         width="850"
-        src="https://media.roboflow.com/open-source/autodistill/autodistill-banner.png?3"
+        src="https://media.roboflow.com/open-source/autodistill/autodistill-banner.png"
       >
     </a>
   </p>
 </div>
 
-# Autodistill Base Model Template
+# Autodistill GCP Vision Module
 
-**⚠️ Note: Before you start building a Base Model, check out our [Available Models](https://docs.autodistill.com/#available-models) directory to see if a model is already being implemented. If your desired model is being implemented, check the [Autodistill](https://github.com/autodistill/autodistill) GitHub Issues for progress. We encourage you to offer support to models you want to see in Autodistill if work is already being done on them.**
+This repository contains the code supporting the [Google Cloud Object Localization API](https://cloud.google.com/vision/docs/object-localizer#vision_localize_objects-python) base model for use with [Autodistill](https://github.com/autodistill/autodistill).
 
-This repository contains a template for use in creating a Base Model for [Autodistill](https://github.com/autodistill/autodistill).
+With this repository, you can label images using the Google Cloud Object Localization API and train a fine-tuned model using the generated labels.
 
-A Base Model is a large model that you can use for automatically labeling data. Autodistill enables you to connect Base Models to a smaller Target Model. A new model is trained using the Target Model architecture and your labeled data. This model will be smaller and thus more cost effective to run.
+This is ideal if you want to train a model that you own on a custom dataset.
 
-Autodistill is an ecosystem of Base and Target Models, with the main [Autodistill](https://github.com/autodistill/autodistill) repository acting as the bridge between the two.
+You can then use your trained model on your computer using Autodistill, or at the edge or in the cloud by deploying with [Roboflow Inference](https://inference.roboflow.com).
 
-This repository contains a starter template from which you can create a Base Model extension.
+See our Autodistill modules for [AWS Rekognition](https://github.com/autodistill/autodistill-rekognition) and [Azure Custom Vision](https://github.com/autodistill/autodistill-azure-vision) if you are interested in using those services instead.
 
 Read the full [Autodistill documentation](https://autodistill.github.io/autodistill/).
-## Steps to Build a Base Model
 
-To build a base model, first rename the `src` directory to the name of the model you want to implement:
+Read the [GCP Vision Autodistill documentation](https://autodistill.github.io/autodistill/base_models/gcp_vision/).
 
-```
-mkdir autodistill_model_name
-```
+## Installation
 
-Use underscores to separate words in the folder name.
+> [!NOTE]  
+> Using this project will incur billing charges for API calls to the Google Cloud Object Localization API. Refer to the [Google Cloud Vision pricing](https://cloud.google.com/vision/pricing) for more information. This package makes one API call per image you want to label.
 
-Next, open the `model.py` file. This is the file where your model loading and inference code will be stored. If you need to write helper functions for use with your model -- for example, long methods for loading data, processing extensions -- you may opt to create new files to store the helper scripts.
+To use the Google Cloud Object Localization API with autodistill, you need to install the following dependency:
 
-In `model.py`, replace the `Model` class name with the name of your model.
-
-Next, implement the following functions:
-
-1. `__init__`: Code for loading the model.
-2. `predict`: A function that takes in an image name, runs inference, and returns a `supervision` Detections object (object detection) or a `supervision` Classifications object (classification).
-
-Replace the import statement in the `__init__.py` file in your model directory to point to your model. You only need to import the model, such as:
-
-```
-from autodistill_clip.clip_model import CLIP
+```bash
+pip install autodistill-gcp-vision
 ```
 
-Your version should be set in the `__init__.py` file as `0.1.0` before submitting your model for review.
+You will then need to authenticate with the `gcloud` CLI.
 
-Update the `setup.py` file to use the name of your model where appropriate. Add all of the requisite dependencies to the `install_requires` section.
+Learn [how to install gcloud](https://cloud.google.com/sdk/docs/install).
 
-Your Base Model should feature a README that shows a minimal example of how to use the base model. This should only be a few lines of code. Refer to `README_EXAMPLE.md` for an example of an Autodistill Base Model README. Feel free to copy this example and replace all parts as required.
+Learn [how to set up and authenticate with gcloud](https://cloud.google.com/sdk/docs/initializing).
 
-Your package must be licensed under the same license as the model you are using (i.e. if your model uses an Apache 2.0 license, your Autodistill extension must use the same license). Your license should be in a file called `LICENSE`, stored in the root directory of your Autodistill extension GitHub repository.
+## Quickstart
 
-Update your README to note the license applied to your package.
+```python
+from autodistill_gcp_vision import GCPVision
+from autodistill.detection import CaptionOntology
+import supervision as sv
+import cv2
 
-When your Autodistill extension is ready for testing, open an Issue in the main [Autodistill](https://github.com/autodistill/autodistill) repository with a link to a public GitHub repository that contains your code.
+# define an ontology to map class names to our Google Cloud Object Localization API prompt
+# the ontology dictionary has the format {caption: class}
+# where caption is the prompt sent to the base model, and class is the label that will
+# be saved for that caption in the generated annotations
+# then, load the model
+base_model = GCPVision(
+    ontology=CaptionOntology(
+        {
+            "Person": "Person",
+            "a forklift": "forklift"
+        }
+    )
+)
 
-An Autodistill maintainer will review your code. If accepted, we will:
+detections = base_model.predict("image.jpeg")
+print(detections)
 
-1. Add your package to the [Autodistill documentation](https://docs.autodistill.com).
-2. Package your project up to PyPi and publish it as an official `autodistill` extension.
-3. Announce your project on social media.
+# annotate predictions on an image
+classes = base_model.ontology.classes()
+
+box_annotator = sv.BoxAnnotator()
+
+labels = [
+	f"{classes[class_id]} {confidence:0.2f}"
+	for _, _, confidence, class_id, _
+	in detections
+]
+
+image = cv2.imread("image.jpeg")
+
+annotated_frame = box_annotator.annotate(
+	scene=image.copy(),
+	detections=detections,
+	labels=labels
+)
+
+sv.plot_image(image=annotated_frame, size=(16, 16))
+```
+
+## License
+
+This project is licensed under an [MIT license](LICENSE).
+
+## 🏆 Contributing
+
+We love your input! Please see the core Autodistill [contributing guide](https://github.com/autodistill/autodistill/blob/main/CONTRIBUTING.md) to get started. Thank you 🙏 to all our contributors!
